@@ -76,6 +76,10 @@ class LTI_Deep_Link_Resource {
             "presentation" => [
                 "documentTarget" => $this->target,
             ],
+            "iframe" => [
+                "width" => 1000,
+                "height" => 400
+            ],
             "custom" => $this->custom_params,
         ];
         if ($this->lineitem !== null) {
