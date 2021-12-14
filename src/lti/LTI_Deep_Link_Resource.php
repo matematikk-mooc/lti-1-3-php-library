@@ -77,8 +77,8 @@ class LTI_Deep_Link_Resource {
                 "documentTarget" => $this->target,
             ],
             "iframe" => [
-                "width" => 1000,
-                "height" => 400
+                "width" => 100%,
+                "height" => 1200
             ],
             "custom" => $this->custom_params,
         ];
