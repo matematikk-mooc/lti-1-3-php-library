@@ -59,26 +59,21 @@ class LTI_Message_Launch {
     public static function from_cache($launch_id, Database $database, Cache $cache = null) {
         $new = new LTI_Message_Launch($database, $cache, null);
         $new->launch_id = $launch_id;
-        $new->jwt = [ 'body' => $new->cache->get_launch_data($launch_id) ];
+        $new->jwt = ['body' => $new->cache->get_launch_data($launch_id)];
         return $new->validate_registration();
     }
 
     /**
      * Validates all aspects of an incoming LTI message launch and caches the launch if successful.
      *
-     * @param array|string  $request    An array of post request parameters. If not set will default to $_POST.
-     *
-     * @throws LTI_Exception        Will throw an LTI_Exception if validation fails.
      * @return LTI_Message_Launch   Will return $this if validation is successful.
+     * @throws LTI_Exception Will throw an LTI_Exception if validation fails.
      */
-    public function validate(array $request = null) {
+    public function validate(bool $skip_state = false) {
 
-        if ($request === null) {
-            $request = $_POST;
-        }
-        $this->request = $request;
+        $this->request = $_POST;
 
-        return $this->validate_state()
+        return $this->validate_state($skip_state)
             ->validate_jwt_format()
             ->validate_nonce()
             ->validate_registration()
@@ -192,7 +187,8 @@ class LTI_Message_Launch {
      *
      * @return array|object Returns the decoded json body of the launch as an array.
      */
-    public function get_launch_data() {
+    public function get_launch_data()
+    {
         return $this->jwt['body'];
     }
 
@@ -209,7 +205,18 @@ class LTI_Message_Launch {
         $key_set_url = $this->registration->get_key_set_url();
 
         // Download key set
-        $public_key_set = json_decode(file_get_contents($key_set_url), true);
+        $public_key_set = json_decode(
+            @file_get_contents(
+                $key_set_url,
+                false,
+                stream_context_create([
+                    "ssl" => [
+                        "allow_self_signed" => false
+                    ]
+                ])
+            ),
+            true
+        );
 
         if (empty($public_key_set)) {
             // Failed to fetch public keyset from URL.
@@ -218,10 +225,14 @@ class LTI_Message_Launch {
 
         // Find key used to sign the JWT (matches the KID in the header)
         foreach ($public_key_set['keys'] as $key) {
-            if ($key['kid'] == $this->jwt['header']['kid']) {
+            if (isset($this->jwt['header']['kid']) && $key['kid'] == $this->jwt['header']['kid']) {
                 try {
-                    return openssl_pkey_get_details(JWK::parseKey($key));
-                } catch(\Exception $e) {
+                    return openssl_pkey_get_details(
+                        JWK::parseKeySet([
+                            'keys' => [$key]
+                        ])[$key['kid']]
+                    );
+                } catch (\Exception $e) {
                     return false;
                 }
             }
@@ -236,33 +247,44 @@ class LTI_Message_Launch {
         return $this;
     }
 
-    private function validate_state() {
-        // Check State for OIDC.
+    private function validate_state(bool $skip_state = false) {
+        // State check bypass
+        if ($skip_state) {
+            return $this;
+        }
+
+        // Error if state is missing from request
+        if (empty($this->request['state'])) {
+            throw new LTI_Exception("Missing state", 1);
+        }
+
+        // Error if state is missing from cookie
+        if (empty($this->cookie->get_cookie('lti1p3_' . $this->request['state']))) {
+            throw new LTI_Exception("Missing state cookie", 1);
+        }
+
+        // Error if state doesn't match cookie
         if ($this->cookie->get_cookie('lti1p3_' . $this->request['state']) !== $this->request['state']) {
-            // Error if state doesn't match
-            throw new LTI_Exception("State not found", 1);
+            throw new LTI_Exception("Invalid state", 1);
         }
         return $this;
     }
 
     private function validate_jwt_format() {
-        $jwt = $this->request['id_token'];
-
+        // Get id_token; throw exception on missing / empty value.
+        $jwt = ($this->request['id_token'] ?? null);
         if (empty($jwt)) {
             throw new LTI_Exception("Missing id_token", 1);
         }
 
-        // Get parts of JWT.
+        // Get parts of JWT; throw exception on invalid number of parts.
         $jwt_parts = explode('.', $jwt);
-
         if (count($jwt_parts) !== 3) {
-            // Invalid number of parts in JWT.
             throw new LTI_Exception("Invalid id_token, JWT must contain 3 parts", 1);
         }
 
-        // Decode JWT headers.
+        // Decode JWT headers and body
         $this->jwt['header'] = json_decode(JWT::urlsafeB64Decode($jwt_parts[0]), true);
-        // Decode JWT Body.
         $this->jwt['body'] = json_decode(JWT::urlsafeB64Decode($jwt_parts[1]), true);
 
         return $this;
@@ -277,17 +299,20 @@ class LTI_Message_Launch {
 
     private function validate_registration() {
         // Find registration.
-        $this->registration = $this->db->find_registration_by_issuer($this->jwt['body']['iss']);
-
+        $iss = $this->jwt['body']['iss'];
+        $this->registration = $this->db->find_registration_by_issuer($iss);
         if (empty($this->registration)) {
-            throw new LTI_Exception("Registration not found.", 1);
+            throw new LTI_Exception('Registration not found for issuer (' . $iss . ')', 1);
         }
 
-        // Check client id.
-        $client_id = is_array($this->jwt['body']['aud']) ? $this->jwt['body']['aud'][0] : $this->jwt['body']['aud'];
-        if ( $client_id !== $this->registration->get_client_id()) {
-            // Client not registered.
-            throw new LTI_Exception("Client id not registered for this issuer", 1);
+        $client_id_from_jwt = is_array($this->jwt['body']['aud']) ? $this->jwt['body']['aud'][0] : $this->jwt['body']['aud'];
+        $client_id_from_registration = $this->registration->get_client_id();
+        if ($client_id_from_jwt !== $client_id_from_registration) {
+            throw new LTI_Exception(
+                'Client id extracted from JWT (' . $client_id_from_jwt . ') does not match client id from registration ' .
+                '(' . $client_id_from_registration . ')',
+                1
+            );
         }
 
         return $this;
@@ -300,8 +325,7 @@ class LTI_Message_Launch {
         // Validate JWT signature
         try {
             JWT::decode($this->request['id_token'], $public_key['key'], array('RS256'));
-        } catch(\Exception $e) {
-            var_dump($e);
+        } catch (\Exception $e) {
             // Error validating signature.
             throw new LTI_Exception("Invalid signature on id_token", 1);
         }
@@ -311,7 +335,10 @@ class LTI_Message_Launch {
 
     private function validate_deployment() {
         // Find deployment.
-        $deployment = $this->db->find_deployment($this->jwt['body']['iss'], $this->jwt['body']['https://purl.imsglobal.org/spec/lti/claim/deployment_id']);
+        $deployment = $this->db->find_deployment(
+            ($this->jwt['body']['iss'] ?? ''),
+            ($this->jwt['body']['https://purl.imsglobal.org/spec/lti/claim/deployment_id'] ?? '')
+        );
 
         if (empty($deployment)) {
             // deployment not recognized.
