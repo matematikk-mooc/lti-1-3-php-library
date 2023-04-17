@@ -18,6 +18,12 @@ class Cookie {
             'expires' => time() + $exp
         ];
 
+        # if a path option was not provided, set the value to "/".  this ensures that the cookie written at
+        # /lti1p3/login will be sent when posting to /lti1p3/launch.
+        if (!isset($cookie_options['path'])) {
+            $cookie_options['path'] = '/';
+        }
+
         // SameSite none and secure will be required for tools to work inside iframes
         $same_site_options = [
             'samesite' => 'None',
