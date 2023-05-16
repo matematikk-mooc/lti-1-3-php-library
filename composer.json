@@ -7,7 +7,8 @@
     },
     "autoload": {
         "psr-4": {
-            "IMSGlobal\\LTI\\": "src/lti/"
+            "IMSGlobal\\LTI\\": "src/lti",
+            "IMSGlobal\\LTI\\Message_Validators\\": "src/lti/message_validators"
         }
     },
     "authors": [
