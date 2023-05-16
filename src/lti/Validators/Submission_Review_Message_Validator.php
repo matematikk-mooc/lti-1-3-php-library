@@ -1,9 +1,9 @@
 <?php
-namespace IMSGlobal\LTI\Message_Validators;
+namespace IMSGlobal\LTI\Validators;
 
-class Resource_Message_Validator implements Message_Validator {
+class Submission_Review_Message_Validator implements Message_Validator {
     public function can_validate($jwt_body) {
-        return $jwt_body['https://purl.imsglobal.org/spec/lti/claim/message_type'] === 'LtiResourceLinkRequest';
+        return $jwt_body['https://purl.imsglobal.org/spec/lti/claim/message_type'] === 'LtiSubmissionReviewRequest';
     }
 
     public function validate($jwt_body) {
@@ -18,6 +18,9 @@ class Resource_Message_Validator implements Message_Validator {
         }
         if (empty($jwt_body['https://purl.imsglobal.org/spec/lti/claim/resource_link']['id'])) {
             throw new LTI_Exception('Missing Resource Link Id');
+        }
+        if (empty($jwt_body['https://purl.imsglobal.org/spec/lti/claim/for_user'])) {
+            throw new LTI_Exception('Missing For User');
         }
 
         return true;

@@ -1,5 +1,5 @@
 <?php
-namespace IMSGlobal\LTI\Message_Validators;
+namespace IMSGlobal\LTI\Validators;
 
 class Deep_Link_Message_Validator implements Message_Validator {
     public function can_validate($jwt_body) {
