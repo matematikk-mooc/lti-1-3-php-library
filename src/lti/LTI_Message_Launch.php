@@ -357,7 +357,7 @@ class LTI_Message_Launch {
         // Do message type validation
 
         // Import all validators
-        foreach (glob(__DIR__ . "/message_validators/*.php") as $filename) {
+        foreach (glob(__DIR__ . "/Validators/*.php") as $filename) {
             include_once $filename;
         }
 
