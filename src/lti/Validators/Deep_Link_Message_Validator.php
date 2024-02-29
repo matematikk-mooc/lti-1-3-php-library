@@ -2,6 +2,7 @@
 namespace IMSGlobal\LTI\Validators;
 
 use IMSGlobal\LTI\Message_Validator;
+use IMSGlobal\LTI\LTI_Exception;
 
 class Deep_Link_Message_Validator implements Message_Validator {
     public function can_validate($jwt_body) {
