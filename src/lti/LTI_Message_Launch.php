@@ -228,11 +228,11 @@ class LTI_Message_Launch {
         foreach ($public_key_set['keys'] as $key) {
             if (isset($this->jwt['header']['kid']) && $key['kid'] == $this->jwt['header']['kid']) {
                 try {
-                    return openssl_pkey_get_details(
-                        JWK::parseKeySet([
-                            'keys' => [$key]
-                        ], 'RS256')[$key['kid']]
-                    );
+                    $opensslkey = JWK::parseKeySet([
+                        'keys' => [$key]
+                    ], 'RS256')[$key['kid']];
+                    
+                    return openssl_pkey_get_details($opensslkey->getKeyMaterial());
                 } catch (\Exception $e) {
                     return false;
                 }
