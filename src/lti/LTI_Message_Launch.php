@@ -226,15 +226,27 @@ class LTI_Message_Launch {
         // Find key used to sign the JWT (matches the KID in the header)
         foreach ($public_key_set['keys'] as $key) {
             if (isset($this->jwt['header']['kid']) && $key['kid'] == $this->jwt['header']['kid']) {
+                // try {
+                //     return openssl_pkey_get_details(
+                //         JWK::parseKeySet([
+                //             'keys' => [$key]
+                //         ])[$key['kid']]
+                //     );
+                // } catch (\Exception $e) {
+                //     return false;
+                // }
                 try {
-                    return openssl_pkey_get_details(
-                        JWK::parseKeySet([
-                            'keys' => [$key]
-                        ])[$key['kid']]
-                    );
-                } catch (\Exception $e) {
-                    return false;
+                    $keySet = JWK::parseKeySet([
+                        'keys' => [$key],
+                    ]);
+                } catch (Exception $e) {
+                    // Do nothing
                 }
+
+                if (isset($keySet[$key['kid']])) {
+                    return $keySet[$key['kid']];
+                }
+
             }
         }
 
