@@ -231,7 +231,7 @@ class LTI_Message_Launch {
                     return openssl_pkey_get_details(
                         JWK::parseKeySet([
                             'keys' => [$key]
-                        ])[$key['kid']]
+                        ], 'RS256')[$key['kid']]
                     );
                 } catch (\Exception $e) {
                     return false;
