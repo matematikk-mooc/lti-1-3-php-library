@@ -231,7 +231,7 @@ class LTI_Message_Launch {
                     $opensslkey = JWK::parseKeySet([
                         'keys' => [$key]
                     ], 'RS256')[$key['kid']];
-                    
+
                     return openssl_pkey_get_details($opensslkey->getKeyMaterial());
                 } catch (\Exception $e) {
                     return false;
@@ -326,7 +326,7 @@ class LTI_Message_Launch {
 
         // Validate JWT signature
         try {
-            JWT::decode($this->request['id_token'], $public_key['key'], array('RS256'));
+            JWT::decode($this->request['id_token'], new Key( $public_key['key'], 'RS256'), $headers = new stdClass());
         } catch (\Exception $e) {
             // Error validating signature.
             throw new LTI_Exception("Invalid signature on id_token", 1);
