@@ -4,6 +4,7 @@ namespace IMSGlobal\LTI;
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
 use Firebase\JWT\Key;
+use \stdClass;
 
 JWT::$leeway = 5;
 
