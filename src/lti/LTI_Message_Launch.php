@@ -3,6 +3,8 @@ namespace IMSGlobal\LTI;
 
 use Firebase\JWT\JWK;
 use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+use \stdClass;
 
 JWT::$leeway = 5;
 
@@ -227,14 +229,15 @@ class LTI_Message_Launch {
         foreach ($public_key_set['keys'] as $key) {
             if (isset($this->jwt['header']['kid']) && $key['kid'] == $this->jwt['header']['kid']) {
                 try {
-                    return openssl_pkey_get_details(
-                        JWK::parseKeySet([
-                            'keys' => [$key]
-                        ])[$key['kid']]
-                    );
+                    $opensslkey = JWK::parseKeySet([
+                        'keys' => [$key]
+                    ], 'RS256')[$key['kid']];
+
+                    return openssl_pkey_get_details($opensslkey->getKeyMaterial());
                 } catch (\Exception $e) {
                     return false;
                 }
+
             }
         }
 
@@ -324,9 +327,10 @@ class LTI_Message_Launch {
 
         // Validate JWT signature
         try {
-            JWT::decode($this->request['id_token'], $public_key['key'], array('RS256'));
+            JWT::decode($this->request['id_token'], new Key( $public_key['key'], 'RS256'));
         } catch (\Exception $e) {
             // Error validating signature.
+            print_r($e);
             throw new LTI_Exception("Invalid signature on id_token", 1);
         }
 
