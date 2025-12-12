@@ -212,6 +212,9 @@ class LTI_Message_Launch {
                 $key_set_url,
                 false,
                 stream_context_create([
+                    "http" => [
+                        "header" => "User-Agent: LTI\r\n"
+                    ],
                     "ssl" => [
                         "allow_self_signed" => false
                     ]
